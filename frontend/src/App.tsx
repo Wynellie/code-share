@@ -1,103 +1,163 @@
 import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
-import {BrowserRouter, Routes, Route, Link, useParams} from 'react-router-dom'
-import Editor from '@monaco-editor/react';
+import { BrowserRouter, Routes, Route, Link, useParams, useNavigate } from 'react-router-dom';
+import Editor, { OnMount } from '@monaco-editor/react';
 
-interface Project{
-  id: number
-  title: string
-  content: string
+interface Project {
+  id: number;
+  title: string;
+  content: string;
 }
-function Detailed(){
-  // хуй-то его пойми, как этот useParams работает
 
-  const {id} = useParams();
-  const [project, setProject] = useState<Project>();
-  const websocket = useRef<WebSocket | null>(null)
+function MainList() {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const navigate = useNavigate();
+
+  // Загрузка списка
+  useEffect(() => {
+    axios.get('http://127.0.0.1:8888/api/projects')
+      .then(res => setProjects(res.data))
+      .catch(err => console.error(err));
+  }, []);
+
+  // Создание нового проекта 
+  const createProject = async () => {
+    try {
+      const res = await axios.post('http://127.0.0.1:8888/api/projects', {
+        title: `Project ${projects.length + 1}`,
+        content: "print('Hello World')\n"
+      });
+      setProjects([res.data, ...projects]);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  return (
+    <div style={{ padding: '20px', color: '#eee' }}>
+      <h2>Все проекты</h2>
+      <button onClick={createProject} style={{ padding: '10px', marginBottom: '20px', cursor: 'pointer' }}>
+        + Создать новый
+      </button>
+      <ul style={{ listStyle: 'none', padding: 0 }}>
+        {projects.map(p => (
+          <li key={p.id} style={{ margin: '10px 0', border: '1px solid #444', padding: '10px', borderRadius: '5px' }}>
+            <Link to={`/projects/${p.id}`} style={{ color: '#61dafb', textDecoration: 'none', fontSize: '18px' }}>
+              {p.title} 
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function Detailed() {
+  const { id } = useParams();
+  const [project, setProject] = useState<Project | null>(null);
+  
+  // Ссылки на объекты, не зависят от рендеров React
+  const editorRef = useRef<any>(null);
+  const websocket = useRef<WebSocket | null>(null);
+  
+  // true - мы сейчас применяем правки с сервера, и не надо слать их обратно.
+  const isRemoteUpdate = useRef(false);
+
+  // Когда Monaco загрузился, сохраняем ссылку
+  const handleEditorDidMount: OnMount = (editor) => {
+    editorRef.current = editor;
+  };
 
   useEffect(() => {
-    let isMounted = true; 
+    let isMounted = true;
 
     const setup = async () => {
-      const resp = await axios.get(`http://127.0.0.1:8888/api/projects/${id}`);
-      setProject(resp.data)
+      try {
+        const resp = await axios.get(`http://127.0.0.1:8888/api/projects/${id}`);
+        if (!isMounted) return;
+        setProject(resp.data);
 
-      if (!project) return;
+        const ws = new WebSocket(`ws://127.0.0.1:8888/ws/${id}`);
 
-      websocket.current = new WebSocket(`ws://127.0.0.1:8888/ws/${resp.data?.id}`)
-      websocket.current.onmessage = (event) => {
-      setProject(prev => prev ? { ...prev, content: event.data } : prev);
+        ws.onopen = () => console.log("WS Connected");
+        
+        ws.onmessage = (event) => {
+          const changes = JSON.parse(event.data);
+        
+          if (Array.isArray(changes) && editorRef.current) {
+            isRemoteUpdate.current = true;
+            
+            editorRef.current.getModel().applyEdits(changes);
+            
+            setTimeout(() => { isRemoteUpdate.current = false; }, 0);
+          }
+        };
+
+        websocket.current = ws;
+
+      } catch (e) {
+        console.error("Ошибка загрузки:", e);
+      }
     };
-    }
 
     setup();
 
     return () => {
-    isMounted = false;
-    websocket.current?.close();
-  };
-  }, [id])
+      isMounted = false;
+      websocket.current?.close();
+    };
+  }, [id]);
 
+  // Обработка ввода пользователя
   const handleEditorChange = (value: string | undefined, event: any) => {
-    websocket.current?.send(JSON.stringify(event.changes));
-  }
+    // вызвано сервером - выходим
+    if (isRemoteUpdate.current) return;
 
-  return (
-    <div style={{ flex: 1, height: '100vh', position: 'relative' }}>
-      <Editor
-        height="100%" // Теперь он займет всю высоту контейнера
-        theme="vs-dark"
-        defaultLanguage="python"
-        value={project?.content}
-        onChange={handleEditorChange}
-      />
-    </div>
-  )
-}
-
-function MainList(){
-  const [projects, setProjects] = useState<Array<Project>>([])
-
-  useEffect(() => {
-    const callAPI = async () => {
-      const resp = await axios.get('http://127.0.0.1:8888/api/projects/');
-
-      setProjects(resp.data);
-      
+    if (websocket.current?.readyState === WebSocket.OPEN && event.changes) {
+      // бэк ждет  { "changes": [...] }
+      const payload = JSON.stringify({ changes: event.changes });
+      websocket.current.send(payload);
     }
+  };
 
-    callAPI();
-
-  }, [])
+  if (!project) return <div style={{color: 'white', padding: '20px'}}>Загрузка...</div>;
 
   return (
-    <>
-      <ul>
-        {projects.map((project) => {
-          return <li key = {project.id}>{<Link to = {`/projects/${project.id}`}>{project.title}</Link>}</li>
-          })}
-      </ul> 
-    </>
-  )
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '10px', background: '#333', color: 'white', display: 'flex', justifyContent: 'space-between' }}>
+        <span>Project: {project.title}</span>
+        <Link to="/" style={{ color: '#aaa' }}>Назад к списку</Link>
+      </div>
+      <div style={{ flex: 1 }}>
+        <Editor
+          height="100%"
+          theme="vs-dark"
+          defaultLanguage="python"
+          defaultValue={project.content}
+          onMount={handleEditorDidMount}
+          onChange={handleEditorChange}
+          options={{
+            automaticLayout: true,
+            fontSize: 16,
+          }}
+        />
+      </div>
+    </div>
+  );
 }
 
 export default function App() {
-
-  
-
   return (
-      <BrowserRouter>
-      <div style={{ display: 'flex', width: '100vw', height: '100vh' }}>
-        <nav style={{ width: '250px', borderRight: '1px solid #333', overflowY: 'auto' }}>
-          <MainList />
-        </nav>
-        <div style={{ flex: 1 }}>
-          <Routes>
-            <Route path="/" element={<div>Выберите проект</div>} />
-            <Route path="/projects/:id" element={<Detailed />} />
-          </Routes>
-        </div>
-      </div>
+    <BrowserRouter>
+      <style>{`
+        body, html, #root { margin: 0; padding: 0; height: 100%; background: #1e1e1e; }
+        * { box-sizing: border-box; }
+      `}</style>
+      
+      <Routes>
+        <Route path="/" element={<MainList />} />
+        <Route path="/projects/:id" element={<Detailed />} />
+      </Routes>
     </BrowserRouter>
   );
 }

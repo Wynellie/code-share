@@ -27,14 +27,13 @@ def get_db():
     finally:
         db.close()
 
-# Создаем таблицы
 models.Base.metadata.create_all(bind=database.engine)
 class ConnectionManager():
 
     def __init__(self):
         self.connections: dict[int, list[WebSocket]] = {}
 
-    def add(self,project_id: int, websocket: WebSocket):
+    async def add(self,project_id: int, websocket: WebSocket):
         if not self.connections.get(project_id):
             self.connections[project_id] = []
         self.connections[project_id].append(websocket)
@@ -42,10 +41,18 @@ class ConnectionManager():
     def remove(self,project_id: int, websocket: WebSocket):
         self.connections[project_id].remove(websocket)
 
-    async def broadcast(self, websocket: WebSocket, project_id: int, data: str):
-        for connection in self.connections[project_id]:
-            if connection != websocket:
-                await connection.send_text(data)
+    async def broadcast(self, sender_ws: WebSocket, project_id: int, data: list):
+        if project_id not in self.connections:
+            return
+
+        # Создаем копию списка для итерации, чтобы не было ошибок при удалении во время цикла
+        active_connections = self.connections[project_id][:]
+
+        for connection in active_connections:
+            if connection != sender_ws:
+
+                    await connection.send_json(data)
+
 
 manager = ConnectionManager()
 update_times = {}
@@ -53,49 +60,35 @@ update_times = {}
 @app.websocket('/ws/{project_id}')
 async def partial_ws_editing(project_id: int, websocket: WebSocket):
     db = database.SessionLocal()
-
     await websocket.accept()
+    await manager.add(project_id, websocket)
 
     try:
         while True:
-            json = await websocket.receive_json()
+            data = await websocket.receive_json()
+            project = db.get(models.Project, project_id)
+            if not project:
+                continue
 
-            print(json)
+            current_text = project.content
+            changes = data.get("changes", [])  # Вытаскиваем имепнно список изменений
+
+            for change in changes:  # Теперь change — это честный dict с rangeOffset
+                offset = int(change['rangeOffset'])
+                length = int(change['rangeLength'])
+                new_text = change['text']
+
+                current_text = current_text[:offset] + new_text + current_text[offset + length:]
+
+            project.content = current_text
+            db.commit()
+
+            await manager.broadcast(websocket, project_id, changes)
+
     except WebSocketDisconnect:
-        pass
-
-# @app.websocket('/ws/{project_id}')
-# async def websocket_endpoint(project_id: int, websocket: WebSocket):
-#
-#     db = database.SessionLocal()
-#
-#     await websocket.accept()
-#     manager.add(project_id, websocket)
-#
-#     data = None
-#
-#     try:
-#         while True:
-#             # возможно перейти на receive_json
-#             data = await websocket.receive_text()
-#
-#             await manager.broadcast(websocket, project_id, data)
-#
-#             cur_time = time.time()
-#             last_save_time = update_times.get(project_id)
-#
-#             if last_save_time == None or cur_time - last_save_time > 2:
-#                 project = db.get(models.Project, project_id)
-#                 if project:
-#                     project.content = data
-#                     db.commit()
-#                     update_times[project_id] = cur_time
-#     except WebSocketDisconnect:
-#         project = db.get(models.Project, project_id)
-#         project.content = data;
-#         manager.remove(project_id, websocket)
-#     finally:
-#         db.close()
+        manager.remove(project_id, websocket)
+    finally:
+        db.close()
 
 @app.put('/api/projects/{project_id}', response_model = schemas.Project)
 async def project_put(project_id: int, project_update: schemas.ProjectCreate, db: Session = Depends(get_db)):

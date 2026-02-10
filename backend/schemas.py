@@ -19,3 +19,15 @@ class Project(ProjectBase):
     class Config:
         # Это мастхэв, чтобы Pydantic умел читать данные прямо из SQLAlchemy объектов
         from_attributes = True
+
+class MonacoRange(BaseModel):
+    startLineNumber: int
+    startColumn: int
+    endLineNumber: int
+    endColumn: int
+
+class Changes(BaseModel):
+    range: dict[str, int]
+    rangeLength: int
+    rangeOffset: int
+    text: str
