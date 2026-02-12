@@ -1,13 +1,19 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import declarative_base
 
-#datavase - создает движок и sessionmaker, для того, чтоб подключатся через него в main
-# Используем 127.0.0.1 и явно задаем кодировку клиента
-URL = "postgresql://user:password@127.0.0.1:5433/editor_db?client_encoding=utf8"
+# 1. Твой URL без лишних параметров
+URL = "postgresql+asyncpg://user:password@127.0.0.1:5433/editor_db"
 
-engine = create_engine(URL)
+# 2. Создаем асинхронный движок
+engine = create_async_engine(URL)
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# 3. Переименовал в AsyncSessionLocal, чтобы main.py его увидел
+# Используем async_sessionmaker — это стандарт для асинхронности
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
 
-# 4. Базовый класс — от него будем наследовать все наши таблицы
+# 4. Базовый класс для моделей
 Base = declarative_base()

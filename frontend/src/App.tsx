@@ -82,16 +82,25 @@ function Detailed() {
         ws.onopen = () => console.log("WS Connected");
         
         ws.onmessage = (event) => {
-          const changes = JSON.parse(event.data);
-        
-          if (Array.isArray(changes) && editorRef.current) {
-            isRemoteUpdate.current = true;
-            
-            editorRef.current.getModel().applyEdits(changes);
-            
-            setTimeout(() => { isRemoteUpdate.current = false; }, 0);
-          }
-        };
+  const data = JSON.parse(event.data);
+  
+  // Достаем массив изменений: либо data.changes, либо сам data
+  const incomingChanges = data.changes || data;
+
+  if (Array.isArray(incomingChanges) && editorRef.current) {
+    console.log("Применяю изменения:", incomingChanges);
+    
+    isRemoteUpdate.current = true;
+    
+    editorRef.current.getModel().applyEdits(incomingChanges.map((edit: any) => ({
+      ...edit,
+      forceMoveMarkers: true // Чтобы курсор не "зажевало" при вставке текста
+    })));
+    
+    // Сбрасываем флаг в конце очереди событий
+    setTimeout(() => { isRemoteUpdate.current = false; }, 0);
+  }
+};
 
         websocket.current = ws;
 

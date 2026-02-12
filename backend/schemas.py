@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 # Создаем схемы для валидирования pydantic, для получения и отправки данных на фронт
 
@@ -17,17 +17,12 @@ class Project(ProjectBase):
     id: int
 
     class Config:
-        # Это мастхэв, чтобы Pydantic умел читать данные прямо из SQLAlchemy объектов
         from_attributes = True
 
-class MonacoRange(BaseModel):
-    startLineNumber: int
-    startColumn: int
-    endLineNumber: int
-    endColumn: int
-
-class Changes(BaseModel):
-    range: dict[str, int]
+class SingleChange(BaseModel):
     rangeLength: int
     rangeOffset: int
     text: str
+
+class ChangesEnvelope(BaseModel):
+    changes: List[SingleChange]
