@@ -4,9 +4,9 @@ services:
     container_name: fast_editor_db
     restart: always
     environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=editor_db
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASS}
+      - POSTGRES_DB=${DB_NAME}
       - LANG=en_US.utf8
     ports:
       - "5433:5432"

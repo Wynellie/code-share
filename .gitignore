@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 *.so
 .Python
+.env.py
 build/
 develop-eggs/
 dist/
@@ -38,6 +39,8 @@ coverage.xml
 *.log
 .pytest_cache/
 .hypothesis/
+.mypy_cache/
+.ruff_cache/
 venv/
 ENV/
 env/
@@ -76,6 +79,10 @@ out/
 .nuxt/
 .cache/
 .parcel-cache/
+.vite/
+.turbo/
+.svelte-kit/
+.output/
 
 # Environment variables
 .env
