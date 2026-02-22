@@ -5,6 +5,7 @@ __pycache__/
 *.so
 .Python
 .env.py
+check_db.py
 build/
 develop-eggs/
 dist/

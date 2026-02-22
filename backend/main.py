@@ -9,6 +9,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from .routers.projects import router as projects_router
 from .routers.editor import router as ws_router
+from .routers.auth import router as auth_router
 from socket_manager import manager
 
 from backend import models, schemas, database
@@ -31,16 +32,16 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5175",
-        "http://127.0.0.1:5175",
+        "http://localhost:5275",
+        "http://127.0.0.1:5275",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ],
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(projects_router)
 app.include_router(ws_router)
-
+app.include_router(auth_router)
