@@ -223,11 +223,24 @@ function Detailed() {
     editorRef.current = editor;
   };
 
-  // Имитация функции шеринга для UI
-  const handleShare = () => {
+  // Замени старый handleShare на этот:
+  const handleShare = async () => {
     const userToShare = prompt("Введите логин пользователя для доступа:");
-    if (userToShare) {
-      alert(`В будущем тут будет запрос к /api/projects/${id}/share для юзера ${userToShare}`);
+
+    // Если нажали "Отмена" или ввели пустую строку — ничего не делаем
+    if (!userToShare) return;
+
+    try {
+      await axios.post(`/api/projects/${id}/share`, {
+        login: userToShare,
+        role: 'editor' // По умолчанию даем права на редактирование. Можно поменять на 'viewer'
+      });
+      alert(`Пользователь ${userToShare} успешно добавлен в проект!`);
+    } catch (e: any) {
+      console.error(e);
+      // Выводим конкретную ошибку от бэкенда (404, 403, 400) или стандартную
+      const errorMessage = e.response?.data?.detail || 'Ошибка при добавлении пользователя';
+      alert(`Ошибка: ${errorMessage}`);
     }
   };
 
