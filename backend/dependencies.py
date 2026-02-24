@@ -1,4 +1,3 @@
-from . import database
 from fastapi import Request, Depends, HTTPException, status, Cookie, Header
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,24 +12,13 @@ async def get_db():
         finally:
             await db.close()
 
-async def get_current_user(
-        request: Request,
-        access_token: str | None = Cookie(default=None),
-        x_csrf_token: str | None = Header(default=None, alias="X-CSRF-Token"),
-        csrf_token: str | None = Cookie(default=None),
-        db: AsyncSession = Depends(get_db)
-):
+async def _verify_token_and_get_user(access_token: str | None, db: AsyncSession):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
     )
-
     if not access_token:
         raise credentials_exception
-
-    if request.method in ["POST", "PUT", "DELETE", "PATCH"]:
-        if not x_csrf_token or not csrf_token or x_csrf_token != csrf_token:
-            raise HTTPException(status_code=403, detail="CSRF Token mismatch")
 
     try:
         token_value = access_token.replace("Bearer ", "")
@@ -49,3 +37,24 @@ async def get_current_user(
         raise credentials_exception
 
     return user
+
+# Зависимость для HTTP (проверяет CSRF)
+async def get_current_user(
+        request: Request,
+        access_token: str | None = Cookie(default=None),
+        x_csrf_token: str | None = Header(default=None, alias="X-CSRF-Token"),
+        csrf_token: str | None = Cookie(default=None),
+        db: AsyncSession = Depends(get_db)
+):
+    if request.method in ["POST", "PUT", "DELETE", "PATCH"]:
+        if not x_csrf_token or not csrf_token or x_csrf_token != csrf_token:
+            raise HTTPException(status_code=403, detail="CSRF Token mismatch")
+
+    return await _verify_token_and_get_user(access_token, db)
+
+# Зависимость для WebSockets (без Request и CSRF)
+async def get_current_user_ws(
+        access_token: str | None = Cookie(default=None),
+        db: AsyncSession = Depends(get_db)
+):
+    return await _verify_token_and_get_user(access_token, db)

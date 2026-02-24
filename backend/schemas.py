@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
+from backend import models
 # Создаем схемы для валидирования pydantic, для получения и отправки данных на фронт
 
 
@@ -18,6 +19,9 @@ class Project(ProjectBase):
 
     class Config:
         from_attributes = True
+class ProjectShare(BaseModel):
+    login: str
+    role: models.RoleEnum = models.RoleEnum.VIEWER
 
 class SingleChange(BaseModel):
     rangeLength: int
