@@ -27,11 +27,12 @@ class SingleChange(BaseModel):
 class ChangesEnvelope(BaseModel):
     changes: List[SingleChange]
 
-class User(BaseModel):
+class UserCreate(BaseModel):
     login: str = Field(min_length=4, max_length=32)
+    password: str
 
-
-class UserCreate(User):
-    password: str  # хэшированный
-    created_at: datetime = Field(default_factory=datetime.now)
-
+class UserResponse(BaseModel):
+    id: int
+    login: str
+    class Config:
+        from_attributes = True
