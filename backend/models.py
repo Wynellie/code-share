@@ -6,11 +6,6 @@ from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from backend.database import Base
 
-# ORM модели для представления записей в python
-
-#
-# Переписать все под mapped
-#
 class RoleEnum(PyEnum):
     EDITOR = 'editor'
     VIEWER = 'viewer'
