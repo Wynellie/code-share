@@ -78,7 +78,7 @@ def test_share_project(create_authorized_client):
 
                                            }, headers={"X-CSRF-Token": owner_client.cookies.get("csrf_token")})
 
-    owner_share_response = owner_client.post(f'/api/projects/{owner_create_response.json()['id']}/share',
+    owner_share_response = owner_client.post(f"/api/projects/{owner_create_response.json()['id']}/share",
                                              json = {
                                                  "login" : "guest"
                                              },
@@ -86,7 +86,7 @@ def test_share_project(create_authorized_client):
                                              )
     assert owner_share_response.status_code == 200
 
-    double_share_response = owner_client.post(f'/api/projects/{owner_create_response.json()['id']}/share',
+    double_share_response = owner_client.post(f"/api/projects/{owner_create_response.json()['id']}/share",
                                              json={
                                                  "login": "guest"
                                              },
@@ -94,7 +94,7 @@ def test_share_project(create_authorized_client):
                                              )
     assert double_share_response.status_code == 400
 
-    not_found_share_response = owner_client.post(f'/api/projects/{owner_create_response.json()['id']}/share',
+    not_found_share_response = owner_client.post(f"/api/projects/{owner_create_response.json()['id']}/share",
                                              json={
                                                  "login": "not_found"
                                              },

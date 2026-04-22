@@ -8,11 +8,11 @@ def test_update_project(authorized_client):
         "title": "test project title",
         "content": "test project content"
     }, headers={"X-CSRF-Token": authorized_client.cookies.get("csrf_token")})
-    authorized_client.put(f'/api/projects/{post_response.json()['id']}', json = {
+    authorized_client.put(f"/api/projects/{post_response.json()['id']}", json = {
         "title": "edited title",
         "content": "edited content"
     }, headers={"X-CSRF-Token": authorized_client.cookies.get("csrf_token")})
 
-    get_reponse = authorized_client.get(f'/api/projects/{post_response.json()['id']}')
+    get_reponse = authorized_client.get(f"/api/projects/{post_response.json()['id']}")
     assert get_reponse.json()['title'] == "edited title" and get_reponse.json()['content'] == "edited content"
 
