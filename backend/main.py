@@ -1,24 +1,19 @@
-from typing import Annotated, List
+
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Depends, HTTPException, WebSocket
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.websockets import WebSocketDisconnect
 
 from .routers.projects import router as projects_router
 from .routers.editor import router as ws_router
 from .routers.auth import router as auth_router
-from socket_manager import manager
 
-from backend import models, schemas, database
+from backend import models, database
 
 # инициализация БД через lifespan
 async def init_db():
     async with database.engine.begin() as conn:
         await conn.run_sync(models.Base.metadata.create_all)
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
